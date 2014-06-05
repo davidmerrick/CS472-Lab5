@@ -65,12 +65,12 @@ int get_cache_line_size(){
 	
 	int max_cache_line_size, results_array_size;
 	//Set it big so results average out
-	max_cache_line_size = results_array_size = 4096;
+	max_cache_line_size = results_array_size = 30000;
 	
 	//1. Establish a baseline
 	int buffer_size = 3 * max_cache_line_size;
 	
-	char buf[buffer_size];
+	char *buf = malloc(sizeof(char) * buffer_size);
 	
 	clock_t start = clock();
 	
@@ -81,7 +81,9 @@ int get_cache_line_size(){
 	}
 	
 	clock_t baseline = clock() - start;
-	
+
+	free(buf);	
+
 	fprintf(fh, "Baseline: %lu\n", baseline);
 	
 	//2. Use the baseline to compare performance to
@@ -91,8 +93,8 @@ int get_cache_line_size(){
 	int j = 0; //Index in results array
 	
 	for(int step_size = 1; step_size < max_cache_line_size; step_size *= 2){
-		buffer_size = 3 * max_cache_line_size;
-		
+		char *buf = malloc(sizeof(char) * buffer_size);		
+	
 		clock_t start = clock();
 		
 		for(int i = 0; i < buffer_size; i += step_size){
@@ -109,6 +111,8 @@ int get_cache_line_size(){
 		
 		results[j] = elapsed;
 		j++;
+		
+		free(buf);
 	}
 	
 	clock_t average = get_average_time(results, results_array_size);
