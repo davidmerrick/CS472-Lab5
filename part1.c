@@ -1,5 +1,4 @@
 //
-// Adapted from code found at http://www.cplusplus.com/forum/general/35557/
 // Determine cache size programmatically by writing to an array repeatedly
 // Cache size for Atom D510 processor I have:
 //		L1: ~24Kb
@@ -7,173 +6,64 @@
 //
 // Cache line size: 64-byte
 //
-// So array should be about
-//		(1.25 * (Sum of Cache Sizes))/(Array element size)
-//		(1.25 * (24K + 1M))/8
-//		= 160,000 Bytes
 //
-// Notes:
-//		sizeof(int): 4 bytes
-//		sizeof(long long int): 8 bytes
-//		sizeof(char): 1 byte
+// This works just by looking at the results.csv and graphing it out.
+// Spikes in time taken indicate the cache line and cache size.
+// Could be done automatically using calculus to figure out average slope.
+// A slope greater than this between 2 data points could indicate a step.
+// First step = cache line. 2nd step = L1 cache.
 
 #define KB 1024
 #define MB 1024 * 1024
 
 #include <time.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 
-
-//Given an array of times, return the average
-clock_t get_average_time(clock_t *time_array, int array_size){
-	clock_t sum = 0;
-	for(int i = 0; i < array_size; i++){
-		sum += time_array[i];
-	}
-	return sum/array_size;
-}
-
-
-void get_cache_size_two(){
+void get_cache_size(){
+		//Based on: https://gist.github.com/jiewmeng/3787223#file_cache_profile.c
 		//Open file to store results
-		FILE* fh = fopen("cachelines.csv", "w");
+		FILE* fh = fopen("results.csv", "w");
 
 		//Headers
-		fprintf(fh, "Step Size, Time Taken \n");
+		fprintf(fh, "Array size (KB), Time Taken \n");
 
 		if (!fh){
 			//error
-			return 1;
+			return;
 		}
 
-		int steps = 64 * 1024 * 1024;
-    int arr[1024 * 1024];
-    int lengthMod = (1024 * 1024) - 1; //Makes sure everything stays within the array
+		unsigned int steps = 256 * 1024 * 1024;
+    static int arr[4 * 1024 * 1024];
+		int lengthMod; //Makes sure everything stays within the array
     int i;
     double timeTaken;
     clock_t start;
+		int sizes[] = {
+        1 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB, 128 * KB, 256 * KB,
+        512 * KB, 1 * MB, 1.5 * MB, 2 * MB, 2.5 * MB, 3 * MB, 3.5 * MB, 4 * MB
+    };
+    int results[sizeof(sizes)/sizeof(int)];
+    int s;
 
-		for(int step_size = 1; step_size < 1024; step_size *= 2){
+    // Test each size
+    for (s = 0; s < sizeof(sizes)/sizeof(int); s++) {
+	    lengthMod = sizes[s] - 1;
 	    start = clock();
-	    for (i = 0; i < steps; i+=step_size) {
-	        arr[(i * 16) & lengthMod]++;
+	    for (i = 0; i < steps; i++) {
+	        arr[(i * 16) & lengthMod] *= 10;
+            arr[(i * 16) & lengthMod] /= 10;
 	    }
-			timeTaken = (double)(clock() - start)/CLOCKS_PER_SEC;
-			fprintf(fh, "%d, %.12f \n", step_size, timeTaken);
-		}
+
+	    timeTaken = (double)(clock() - start)/CLOCKS_PER_SEC;
+			fprintf(fh, "%d, %.12f \n", sizes[s] / KB, timeTaken);
+    }
 
 		fclose(fh);
 }
 
-clock_t thrash_cache(int cache_line_increment){
-	//160,000 / sizeof(long long int) = 20,000
-	int buffer_size = 2e4;
-
-	long long int buf[buffer_size];
-
-	//Measure the time of the operation. Steep increase in time indicates cache border
-	clock_t start = clock();
-
-	for(int i = 0; i < buffer_size; i += cache_line_increment){
-		//Write random data to the buffer
-		long long int rando = (long long int) rand();
-		buf[i] = rando;
-	}
-
-	clock_t elapsed = clock() - start;
-
-	return elapsed;
-}
-
-//Attempts to find out the size of a cache line
-//Based on http://igoro.com/archive/gallery-of-processor-cache-effects/
-int get_cache_line_size(){
-	//Open file to store results
-	FILE* fh = fopen("cachelines.csv", "w");
-
-	if (!fh){
-		//error
-		return 1;
-	}
-
-	int max_cache_line_size, results_array_size;
-	//Set it big so results average out
-	max_cache_line_size = results_array_size = 30000;
-
-	//1. Establish a baseline
-	int buffer_size = 3 * max_cache_line_size;
-
-	char *buf = malloc(sizeof(char) * buffer_size);
-
-	clock_t start = clock();
-
-	for(int i = 0; i < buffer_size; i++){
-		//Write random data to the buffer
-		char rando = (char) rand() % 128;
-		memcpy(buf + i, &rando, sizeof(char));
-	}
-
-	clock_t baseline = clock() - start;
-
-	fprintf(fh, "Baseline: %lu\n", baseline);
-
-	//2. Use the baseline to compare performance to
-	//(Record results for debugging. And write them out.)
-	fprintf(fh, "Headers: step size, time\n");
-	clock_t results[max_cache_line_size];
-	int j = 0; //Index in results array
-
-	for(int step_size = 1; step_size < max_cache_line_size; step_size *= 2){
-		char *buf2 = realloc(buf, sizeof(char) * buffer_size);
-
-		clock_t start = clock();
-
-		for(int i = 0; i < buffer_size; i += step_size){
-			//Write random data to the buffer
-			char rando = (char) rand() % 128;
-			memcpy(buf2 + i, &rando, sizeof(char));
-		}
-
-		clock_t elapsed = clock() - start;
-		//		if(elapsed >= (0.8) * baseline){
-		//			return j;
-		//		}
-		fprintf(fh, "%d, %lu\n", step_size, elapsed);
-
-		results[j] = elapsed;
-		j++;
-	}
-
-	free(buf);
-
-	clock_t average = get_average_time(results, results_array_size);
-
-	fclose(fh);
-}
-
 int main(){
-	printf("Getting cache line size\n");
-	get_cache_size_two();
-
-	//	printf("Writing array access timings to \"results.csv\"\n");
-	//
-	//	FILE* fh = fopen("results.csv", "w");
-	//
-	//	if (!fh){
-	//		//error
-	//		return 1;
-	//	}
-	//
-	//	int cache_line_increment;
-	//	for (cache_line_increment = 8; cache_line_increment < 16 * 1024 * 1024; cache_line_increment *= 2){
-	//		fprintf(fh, "%d, %lu\n", cache_line_increment, thrash_cache(cache_line_increment));
-	//		printf(".");
-	//		fflush(stdout);
-	//	}
-	//
-	//	fclose(fh);
-
+	printf("Writing results to \"results.csv\"\n");
+	get_cache_size();
 	return 0;
 }
