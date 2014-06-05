@@ -56,7 +56,8 @@ clock_t thrash_cache(int cache_line_increment){
 //Based on http://igoro.com/archive/gallery-of-processor-cache-effects/
 int get_cache_line_size(){
 	int max_cache_line_size, results_array_size;
-	max_cache_line_size = results_array_size = 128;
+	//Set it big so results average out
+	max_cache_line_size = results_array_size = 4096;
 	
 	//1. Establish a baseline
 	int buffer_size = 3 * max_cache_line_size;
@@ -74,14 +75,19 @@ int get_cache_line_size(){
 	clock_t baseline = clock() - start;
 	
 	//2. Use the baseline to compare performance to
-	//For debugging:
+	//(Record results for debugging. And write them out.)
 	clock_t results[max_cache_line_size];
 	int j = 0; //Index in results array
 	
+	FILE* fh = fopen("cachelines.csv", "w");
+	
+	if (!fh){
+		//error
+		return 1;
+	}
+	
 	for(int step_size = 1; step_size < max_cache_line_size; step_size *= 2){
 		buffer_size = 3 * max_cache_line_size;
-		
-		buf[buffer_size];
 		
 		clock_t start = clock();
 		
@@ -92,9 +98,9 @@ int get_cache_line_size(){
 		}
 		
 		clock_t elapsed = clock() - start;
-		if(elapsed >= (0.8) * baseline){
-			
-		}
+//		if(elapsed >= (0.8) * baseline){
+//			return j;
+//		}
 		
 		results[j] = elapsed;
 		j++;
@@ -102,31 +108,32 @@ int get_cache_line_size(){
 	
 	clock_t average = get_average_time(results, results_array_size);
 	
-	//Loop through the array to determine which ones are way above average
+	fclose(fh);
 	
 	return 0;
 }
 
 int main(){
-	int x = get_cache_line_size();
-	printf("%d", x);
-	printf("Writing array access timings to \"results.csv\"\n");
-	
-	FILE* fh = fopen("results.csv", "w");
-	
-	if (!fh){
-		//error
-		return 1;
-	}
-	
-	int cache_line_increment;
-	for (cache_line_increment = 8; cache_line_increment < 16 * 1024 * 1024; cache_line_increment *= 2){
-		fprintf(fh, "%d, %lu\n", cache_line_increment, thrash_cache(cache_line_increment));
-		printf(".");
-		fflush(stdout);
-	}
-	
-	fclose(fh);
+	printf("Getting cache line size\n");
+	get_cache_line_size();
+
+//	printf("Writing array access timings to \"results.csv\"\n");
+//	
+//	FILE* fh = fopen("results.csv", "w");
+//	
+//	if (!fh){
+//		//error
+//		return 1;
+//	}
+//	
+//	int cache_line_increment;
+//	for (cache_line_increment = 8; cache_line_increment < 16 * 1024 * 1024; cache_line_increment *= 2){
+//		fprintf(fh, "%d, %lu\n", cache_line_increment, thrash_cache(cache_line_increment));
+//		printf(".");
+//		fflush(stdout);
+//	}
+//	
+//	fclose(fh);
 	
 	return 0;
 }
