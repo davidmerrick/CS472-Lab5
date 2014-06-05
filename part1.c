@@ -17,8 +17,12 @@
 //		sizeof(long long int): 8 bytes
 //		sizeof(char): 1 byte
 
+#define KB 1024
+#define MB 1024 * 1024
+
 #include <time.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 
 
@@ -29,6 +33,38 @@ clock_t get_average_time(clock_t *time_array, int array_size){
 		sum += time_array[i];
 	}
 	return sum/array_size;
+}
+
+
+void get_cache_size_two(){
+		//Open file to store results
+		FILE* fh = fopen("cachelines.csv", "w");
+
+		//Headers
+		fprintf(fh, "Step Size, Time Taken \n");
+
+		if (!fh){
+			//error
+			return 1;
+		}
+
+		int steps = 64 * 1024 * 1024;
+    int arr[1024 * 1024];
+    int lengthMod = (1024 * 1024) - 1; //Makes sure everything stays within the array
+    int i;
+    double timeTaken;
+    clock_t start;
+
+		for(int step_size = 1; step_size < 1024; step_size *= 2){
+	    start = clock();
+	    for (i = 0; i < steps; i+=step_size) {
+	        arr[(i * 16) & lengthMod]++;
+	    }
+			timeTaken = (double)(clock() - start)/CLOCKS_PER_SEC;
+			fprintf(fh, "%d, %.12f \n", step_size, timeTaken);
+		}
+
+		fclose(fh);
 }
 
 clock_t thrash_cache(int cache_line_increment){
@@ -67,15 +103,16 @@ int get_cache_line_size(){
 	max_cache_line_size = results_array_size = 30000;
 
 	//1. Establish a baseline
+	int buffer_size = 3 * max_cache_line_size;
 
-	char test = 'b';
-	char *ptr = &test;
-	int offset = 1;
+	char *buf = malloc(sizeof(char) * buffer_size);
 
 	clock_t start = clock();
 
 	for(int i = 0; i < buffer_size; i++){
-		memcpy(ptr, ptr+offset, sizeof(char));
+		//Write random data to the buffer
+		char rando = (char) rand() % 128;
+		memcpy(buf + i, &rando, sizeof(char));
 	}
 
 	clock_t baseline = clock() - start;
@@ -89,56 +126,54 @@ int get_cache_line_size(){
 	int j = 0; //Index in results array
 
 	for(int step_size = 1; step_size < max_cache_line_size; step_size *= 2){
-		char *buf = malloc(sizeof(char) * buffer_size);
+		char *buf2 = realloc(buf, sizeof(char) * buffer_size);
 
 		clock_t start = clock();
 
 		for(int i = 0; i < buffer_size; i += step_size){
 			//Write random data to the buffer
 			char rando = (char) rand() % 128;
-			buf[i] = rando;
+			memcpy(buf2 + i, &rando, sizeof(char));
 		}
 
 		clock_t elapsed = clock() - start;
-//		if(elapsed >= (0.8) * baseline){
-//			return j;
-//		}
+		//		if(elapsed >= (0.8) * baseline){
+		//			return j;
+		//		}
 		fprintf(fh, "%d, %lu\n", step_size, elapsed);
 
 		results[j] = elapsed;
 		j++;
-
-		free(buf);
 	}
+
+	free(buf);
 
 	clock_t average = get_average_time(results, results_array_size);
 
 	fclose(fh);
-
-	return 0;
 }
 
 int main(){
 	printf("Getting cache line size\n");
-	get_cache_line_size();
+	get_cache_size_two();
 
-//	printf("Writing array access timings to \"results.csv\"\n");
-//
-//	FILE* fh = fopen("results.csv", "w");
-//
-//	if (!fh){
-//		//error
-//		return 1;
-//	}
-//
-//	int cache_line_increment;
-//	for (cache_line_increment = 8; cache_line_increment < 16 * 1024 * 1024; cache_line_increment *= 2){
-//		fprintf(fh, "%d, %lu\n", cache_line_increment, thrash_cache(cache_line_increment));
-//		printf(".");
-//		fflush(stdout);
-//	}
-//
-//	fclose(fh);
+	//	printf("Writing array access timings to \"results.csv\"\n");
+	//
+	//	FILE* fh = fopen("results.csv", "w");
+	//
+	//	if (!fh){
+	//		//error
+	//		return 1;
+	//	}
+	//
+	//	int cache_line_increment;
+	//	for (cache_line_increment = 8; cache_line_increment < 16 * 1024 * 1024; cache_line_increment *= 2){
+	//		fprintf(fh, "%d, %lu\n", cache_line_increment, thrash_cache(cache_line_increment));
+	//		printf(".");
+	//		fflush(stdout);
+	//	}
+	//
+	//	fclose(fh);
 
 	return 0;
 }
