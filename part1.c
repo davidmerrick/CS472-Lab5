@@ -55,6 +55,14 @@ clock_t thrash_cache(int cache_line_increment){
 //Attempts to find out the size of a cache line
 //Based on http://igoro.com/archive/gallery-of-processor-cache-effects/
 int get_cache_line_size(){
+	//Open file to store results
+	FILE* fh = fopen("cachelines.csv", "w");
+	
+	if (!fh){
+		//error
+		return 1;
+	}
+	
 	int max_cache_line_size, results_array_size;
 	//Set it big so results average out
 	max_cache_line_size = results_array_size = 4096;
@@ -74,17 +82,13 @@ int get_cache_line_size(){
 	
 	clock_t baseline = clock() - start;
 	
+	fprintf(fh, "Baseline: %lu\n", baseline);
+	
 	//2. Use the baseline to compare performance to
 	//(Record results for debugging. And write them out.)
+	fprintf(fh, "Headers: step size, time\n");
 	clock_t results[max_cache_line_size];
 	int j = 0; //Index in results array
-	
-	FILE* fh = fopen("cachelines.csv", "w");
-	
-	if (!fh){
-		//error
-		return 1;
-	}
 	
 	for(int step_size = 1; step_size < max_cache_line_size; step_size *= 2){
 		buffer_size = 3 * max_cache_line_size;
@@ -101,6 +105,7 @@ int get_cache_line_size(){
 //		if(elapsed >= (0.8) * baseline){
 //			return j;
 //		}
+		fprintf(fh, "%d, %lu\n", step_size, elapsed);
 		
 		results[j] = elapsed;
 		j++;
