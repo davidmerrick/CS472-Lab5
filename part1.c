@@ -43,7 +43,6 @@ void get_cache_size(){
         1 * KB, 4 * KB, 8 * KB, 16 * KB, 32 * KB, 64 * KB, 128 * KB, 256 * KB,
         512 * KB, 1 * MB, 1.5 * MB, 2 * MB, 2.5 * MB, 3 * MB, 3.5 * MB, 4 * MB
     };
-    int results[sizeof(sizes)/sizeof(int)];
     int s;
 
     // Test each size
@@ -51,11 +50,15 @@ void get_cache_size(){
 	    lengthMod = sizes[s] - 1;
 	    start = clock();
 	    for (i = 0; i < steps; i++) {
-	        arr[(i * 16) & lengthMod] *= 10;
-            arr[(i * 16) & lengthMod] /= 10;
+	        //Perform some operations on parts of the array
+					//Multiply one element by 10
+					arr[(i * 16) & lengthMod] *= 10;
+          //Divide that element by 10
+					arr[(i * 16) & lengthMod] /= 10;
 	    }
 
 	    timeTaken = (double)(clock() - start)/CLOCKS_PER_SEC;
+			//Save array size and time taken to the results file
 			fprintf(fh, "%d, %.12f \n", sizes[s] / KB, timeTaken);
     }
 
