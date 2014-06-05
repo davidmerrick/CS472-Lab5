@@ -34,91 +34,87 @@ clock_t get_average_time(clock_t *time_array, int array_size){
 clock_t thrash_cache(int cache_line_increment){
 	//160,000 / sizeof(long long int) = 20,000
 	int buffer_size = 2e4;
-	
+
 	long long int buf[buffer_size];
-	
+
 	//Measure the time of the operation. Steep increase in time indicates cache border
 	clock_t start = clock();
-	
+
 	for(int i = 0; i < buffer_size; i += cache_line_increment){
 		//Write random data to the buffer
 		long long int rando = (long long int) rand();
 		buf[i] = rando;
 	}
-	
+
 	clock_t elapsed = clock() - start;
-	
+
 	return elapsed;
 }
-
 
 //Attempts to find out the size of a cache line
 //Based on http://igoro.com/archive/gallery-of-processor-cache-effects/
 int get_cache_line_size(){
 	//Open file to store results
 	FILE* fh = fopen("cachelines.csv", "w");
-	
+
 	if (!fh){
 		//error
 		return 1;
 	}
-	
+
 	int max_cache_line_size, results_array_size;
 	//Set it big so results average out
 	max_cache_line_size = results_array_size = 30000;
-	
+
 	//1. Establish a baseline
-	int buffer_size = 3 * max_cache_line_size;
-	
-	char *buf = malloc(sizeof(char) * buffer_size);
-	
+
+	char test = 'b';
+	char *ptr = &test;
+	int offset = 1;
+
 	clock_t start = clock();
-	
+
 	for(int i = 0; i < buffer_size; i++){
-		//Write random data to the buffer
-		char rando = (char) rand() % 128;
-		buf[i] = rando;
+		memcpy(ptr, ptr+offset, sizeof(char));
 	}
-	
+
 	clock_t baseline = clock() - start;
 
-	free(buf);	
-
 	fprintf(fh, "Baseline: %lu\n", baseline);
-	
+
 	//2. Use the baseline to compare performance to
 	//(Record results for debugging. And write them out.)
 	fprintf(fh, "Headers: step size, time\n");
 	clock_t results[max_cache_line_size];
 	int j = 0; //Index in results array
-	
+
 	for(int step_size = 1; step_size < max_cache_line_size; step_size *= 2){
-		char *buf = malloc(sizeof(char) * buffer_size);		
-	
+		char *buf = malloc(sizeof(char) * buffer_size);
+
 		clock_t start = clock();
-		
+
 		for(int i = 0; i < buffer_size; i += step_size){
 			//Write random data to the buffer
 			char rando = (char) rand() % 128;
 			buf[i] = rando;
 		}
-		
+
 		clock_t elapsed = clock() - start;
 //		if(elapsed >= (0.8) * baseline){
 //			return j;
 //		}
 		fprintf(fh, "%d, %lu\n", step_size, elapsed);
-		
+
 		results[j] = elapsed;
 		j++;
-		
+
 		free(buf);
 	}
-	
+
 	clock_t average = get_average_time(results, results_array_size);
-	
+
 	fclose(fh);
-	
+
 	return 0;
 }
 
@@ -127,22 +123,22 @@ int main(){
 	get_cache_line_size();
 
 //	printf("Writing array access timings to \"results.csv\"\n");
-//	
+//
 //	FILE* fh = fopen("results.csv", "w");
-//	
+//
 //	if (!fh){
 //		//error
 //		return 1;
 //	}
-//	
+//
 //	int cache_line_increment;
 //	for (cache_line_increment = 8; cache_line_increment < 16 * 1024 * 1024; cache_line_increment *= 2){
 //		fprintf(fh, "%d, %lu\n", cache_line_increment, thrash_cache(cache_line_increment));
 //		printf(".");
 //		fflush(stdout);
 //	}
-//	
+//
 //	fclose(fh);
-	
+
 	return 0;
 }
